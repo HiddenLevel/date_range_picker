@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_date_range_picker/flutter_date_range_picker.dart';
+import 'package:intl/intl.dart';
 
 /// The default [CalendarTheme] used by the date range picker.
 const CalendarTheme kTheme = CalendarTheme(
@@ -123,23 +125,24 @@ class DayNamesRow extends StatelessWidget {
 ///
 /// The theme property can be used to customize the appearance of the picker.
 class DateRangePickerWidget extends StatefulWidget {
-  const DateRangePickerWidget({
-    Key? key,
-    required this.onDateRangeChanged,
-    this.initialDisplayedDate,
-    this.minimumDateRangeLength,
-    this.initialDateRange,
-    this.minDate,
-    this.maxDate,
-    this.theme = kTheme,
-    this.maximumDateRangeLength,
-    this.disabledDates = const [],
-    this.quickDateRanges = const [],
-    this.doubleMonth = true,
-    this.height = 329,
-    this.displayMonthsSeparator = true,
-    this.separatorThickness = 1,
-  }) : super(key: key);
+  const DateRangePickerWidget(
+      {Key? key,
+      required this.onDateRangeChanged,
+      this.initialDisplayedDate,
+      this.minimumDateRangeLength,
+      this.initialDateRange,
+      this.minDate,
+      this.maxDate,
+      this.theme = kTheme,
+      this.maximumDateRangeLength,
+      this.disabledDates = const [],
+      this.quickDateRanges = const [],
+      this.doubleMonth = true,
+      this.height = 600,
+      this.displayMonthsSeparator = true,
+      this.separatorThickness = 1,
+      this.minimunHTimeDiff = 1})
+      : super(key: key);
 
   /// Called whenever the selected date range is changed.
   final ValueChanged<DateRange?> onDateRangeChanged;
@@ -155,6 +158,9 @@ class DateRangePickerWidget extends StatefulWidget {
 
   /// The minimum length of the selected date range.
   final int? minimumDateRangeLength;
+
+  /// The minimum time hour difference between the date range.
+  final int minimunHTimeDiff;
 
   /// Set to true to display two months at a time.
   final bool doubleMonth;
@@ -189,14 +195,14 @@ class DateRangePickerWidget extends StatefulWidget {
 
 class DateRangePickerWidgetState extends State<DateRangePickerWidget> {
   late final controller = RangePickerController(
-    dateRange: widget.initialDateRange,
-    minDate: widget.minDate,
-    maxDate: widget.maxDate,
-    onDateRangeChanged: widget.onDateRangeChanged,
-    disabledDates: widget.disabledDates,
-    minimumDateRangeLength: widget.minimumDateRangeLength,
-    maximumDateRangeLength: widget.maximumDateRangeLength,
-  );
+      dateRange: widget.initialDateRange,
+      minDate: widget.minDate,
+      maxDate: widget.maxDate,
+      onDateRangeChanged: widget.onDateRangeChanged,
+      disabledDates: widget.disabledDates,
+      minimumDateRangeLength: widget.minimumDateRangeLength,
+      maximumDateRangeLength: widget.maximumDateRangeLength,
+      minimunHTimeDiff: widget.minimunHTimeDiff);
 
   late final calendarController = CalendarWidgetController(
     controller: controller,
@@ -210,7 +216,6 @@ class DateRangePickerWidgetState extends State<DateRangePickerWidget> {
   @override
   void initState() {
     super.initState();
-
     subscription = calendarController.updateStream.listen((event) {
       if (mounted) setState(() {});
     });
@@ -249,6 +254,9 @@ class DateRangePickerWidgetState extends State<DateRangePickerWidget> {
                 onDateChanged: calendarController.onDateChanged,
                 days: calendarController.retrieveDatesForMonth(),
                 delta: calendarController.retrieveDeltaForMonth(),
+                rangePickerController: controller,
+                calendarWidgetController: calendarController,
+                use: widget.doubleMonth ? 0 : 2,
               ),
               if (widget.doubleMonth) ...{
                 if (widget.displayMonthsSeparator)
@@ -261,6 +269,9 @@ class DateRangePickerWidgetState extends State<DateRangePickerWidget> {
                   onDateChanged: calendarController.onDateChanged,
                   days: calendarController.retrieveDatesForNextMonth(),
                   delta: calendarController.retrieveDeltaForNextMonth(),
+                  rangePickerController: controller,
+                  calendarWidgetController: calendarController,
+                  use: 1,
                 ),
               }
             ],
@@ -275,7 +286,7 @@ class DateRangePickerWidgetState extends State<DateRangePickerWidget> {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 200,
+            width: 150,
             child: QuickSelectorWidget(
               selectedDateRange: controller.dateRange,
               quickDateRanges: widget.quickDateRanges,
@@ -309,12 +320,16 @@ class DateRangePickerWidgetState extends State<DateRangePickerWidget> {
 
 /// A widget that displays a vertical column of days in a month grid, along with the day names row.
 class EnrichedMonthWrapWidget extends StatelessWidget {
-  const EnrichedMonthWrapWidget({
+  EnrichedMonthWrapWidget({
     Key? key,
     required this.theme,
     required this.onDateChanged,
     required this.days,
     required this.delta,
+    required this.rangePickerController,
+    required this.calendarWidgetController,
+    this.minHTimeDiff = 1,
+    required this.use,
   }) : super(key: key);
 
   /// The theme to use for the calendar.
@@ -328,6 +343,17 @@ class EnrichedMonthWrapWidget extends StatelessWidget {
 
   /// The number of days to pad at the beginning of the grid.
   final int delta;
+
+  final int use;
+
+  final RangePickerController rangePickerController;
+
+  final CalendarWidgetController calendarWidgetController;
+
+  final int minHTimeDiff;
+
+  final DateFormat dateFormat = DateFormat('yyyy/MM/dd');
+  final DateFormat timeFormat = DateFormat('HH:MM:ss');
 
   @override
   Widget build(BuildContext context) {
@@ -349,6 +375,36 @@ class EnrichedMonthWrapWidget extends StatelessWidget {
             ),
             placeholderBuilder: (index) => buildPlaceholder(),
           ),
+          if (use == 0)
+            Row(
+              children: [
+                getDateFormInput(true),
+                getTimeFormInput(true),
+              ],
+            ),
+          if (use == 1)
+            Row(
+              children: [
+                getDateFormInput(false),
+                getTimeFormInput(false),
+              ],
+            ),
+          if (use == 2)
+            Column(children: [
+              Row(
+                children: [
+                  getDateFormInput(true),
+                  getTimeFormInput(true),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Row(
+                children: [
+                  getDateFormInput(false),
+                  getTimeFormInput(false),
+                ],
+              )
+            ]),
         ],
       ),
     );
@@ -359,4 +415,195 @@ class EnrichedMonthWrapWidget extends StatelessWidget {
         width: theme.tileSize,
         height: theme.tileSize,
       );
+
+  /// Only supports YYYY/MM/DD format.
+  Widget getDateFormInput(bool isStartDate) {
+    String label = 'Start date';
+    TextEditingController controller = TextEditingController(
+        text: rangePickerController.startDate == null
+            ? ""
+            : dateFormat.format(rangePickerController.startDate!));
+
+    if (!isStartDate) {
+      label = 'End date';
+      controller = TextEditingController(
+          text: rangePickerController.endDate == null
+              ? ""
+              : dateFormat.format(rangePickerController.endDate!));
+    }
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: TextFormField(
+          controller: controller,
+          key: key,
+          decoration: InputDecoration(
+              isDense: true,
+              border: const OutlineInputBorder(
+                borderSide: BorderSide(),
+              ),
+              errorBorder: const OutlineInputBorder(borderSide: BorderSide()),
+              labelText: label,
+              hintText: 'YYYY/MM/DD',
+              hintStyle: const TextStyle(fontStyle: FontStyle.italic)),
+          validator: (startDate) {
+            if (startDate == null) {
+              return "$label required.";
+            }
+            try {
+              dateFormat.parseStrict(startDate);
+            } catch (e) {
+              return "Invalid date";
+            }
+            return null;
+          },
+          onChanged: (value) {},
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp("[0-9/]")),
+            LengthLimitingTextInputFormatter(10),
+            DateFormatter(maxYear: rangePickerController.maxDate?.year)
+          ],
+          onEditingComplete: () {
+            _checkDateSelection(isStartDate, controller);
+          },
+          onTapOutside: (_) {
+            //_checkDateSelection(isStartDate, controller);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _checkDateSelection(bool isStartDate, TextEditingController controller,
+      [bool utc = true]) {
+    try {
+      DateTime latestDt = dateFormat.parseStrict(controller.text, utc);
+      final dateRange = rangePickerController.dateRange;
+      if (isStartDate) {
+        if (dateRange != null) {
+          assert(dateRange.end.difference(latestDt) >
+              Duration(hours: minHTimeDiff));
+        }
+        if (calendarWidgetController.controller.endDate != null) {
+          calendarWidgetController.setDateRange(DateRange(
+              latestDt, calendarWidgetController.controller.endDate!));
+        } else {
+          onDateChanged(latestDt);
+        }
+      } else {
+        if (dateRange != null) {
+          assert(latestDt.difference(dateRange.start) >
+              Duration(hours: minHTimeDiff));
+        }
+        if (calendarWidgetController.controller.startDate != null) {
+          calendarWidgetController.setDateRange(DateRange(
+              calendarWidgetController.controller.startDate!, latestDt));
+        } else {
+          onDateChanged(latestDt);
+        }
+      }
+    } catch (e) {
+      if (isStartDate) {
+        controller.text = rangePickerController.prevStartDate == null
+            ? ""
+            : dateFormat.format(rangePickerController.prevStartDate!);
+      } else {
+        controller.text = rangePickerController.prevEndDate == null
+            ? ""
+            : dateFormat.format(rangePickerController.prevEndDate!);
+      }
+      return;
+    }
+  }
+
+  void _checkTimeSelection(bool isStartTime, TextEditingController controller) {
+    try {
+      Duration duration = parseDuration(controller.text);
+      final dateRange = rangePickerController.dateRange;
+      if (isStartTime) {
+        if (dateRange != null) {
+          assert(dateRange.end
+                  .difference(dateOnly(dateRange.start).add(duration)) >
+              Duration(hours: minHTimeDiff));
+        }
+        rangePickerController.startTime = duration;
+      } else {
+        if (dateRange != null) {
+          assert(dateRange.end
+                  .add(duration)
+                  .difference(dateOnly(dateRange.start)) >
+              Duration(hours: minHTimeDiff));
+        }
+        rangePickerController.endTime = duration;
+      }
+    } catch (e) {
+      if (isStartTime) {
+        controller.text = durationToString(rangePickerController.startTime);
+      } else {
+        controller.text = durationToString(rangePickerController.endTime);
+      }
+      return;
+    }
+  }
+
+  /// Only supports HH:MM:ss format.
+  Widget getTimeFormInput(bool isStartTime) {
+    String label = 'Start time';
+    TextEditingController controller = TextEditingController(
+        text: durationToString(rangePickerController.startTime));
+
+    if (!isStartTime) {
+      label = 'End time';
+      controller = TextEditingController(
+          text: rangePickerController.endDate == null
+              ? ""
+              : durationToString(rangePickerController.endTime));
+    }
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: TextFormField(
+          key: key,
+          controller: controller,
+          decoration: InputDecoration(
+              isDense: true,
+              border: const OutlineInputBorder(
+                borderSide: BorderSide(),
+              ),
+              errorBorder: const OutlineInputBorder(borderSide: BorderSide()),
+              labelText: label,
+              hintText: '00:00:00',
+              hintStyle: const TextStyle(fontStyle: FontStyle.italic)),
+          validator: (dateTime) {
+            if (dateTime == null) {
+              return "$label required.";
+            }
+            try {
+              timeFormat.parseStrict(dateTime);
+            } catch (e) {
+              return "Invalid time";
+            }
+            return null;
+          },
+          onChanged: (value) {},
+          enabled: isStartTime
+              ? calendarWidgetController.controller.startDate != null
+              : calendarWidgetController.controller.endDate != null,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp("[0-9:]")),
+            LengthLimitingTextInputFormatter(8),
+            TimeFormatter()
+          ],
+          onEditingComplete: () {
+            _checkTimeSelection(isStartTime, controller);
+          },
+          onTapOutside: (_) {
+            _checkTimeSelection(isStartTime, controller);
+          },
+        ),
+      ),
+    );
+  }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_date_range_picker/src/models.dart';
 
 /// A controller that handles the logic of the date range picker.
@@ -10,22 +11,43 @@ class RangePickerController {
       required this.onDateRangeChanged,
       this.minDate,
       this.maxDate,
-      this.startDate,
-      this.endDate,
+      DateTime? startDate,
+      DateTime? endDate,
       this.minimumDateRangeLength,
       this.maximumDateRangeLength,
-      this.disabledDates = const []}) {
+      this.minimunHTimeDiff = 1,
+      this.disabledDates = const [],
+      this.utc = true}) {
     if (dateRange != null) {
-      startDate = dateRange.start;
-      endDate = dateRange.end;
+      _startDate = dateRange.start;
+      _endDate = dateRange.end;
+      assert(_endDate!.difference(_startDate!) >
+          Duration(hours: minimunHTimeDiff));
+    }
+    if (_startDate != null) {
+      prevStartDate = _startDate;
+      _startTime = Duration(
+          hours: _startDate!.hour,
+          minutes: _startDate!.minute,
+          seconds: _startDate!.second);
+    }
+    if (_endDate != null) {
+      prevEndDate = _endDate;
+      _endTime = Duration(
+          hours: _endDate!.hour,
+          minutes: _endDate!.minute,
+          seconds: _endDate!.second);
     }
   }
 
   int? maximumDateRangeLength;
   int? minimumDateRangeLength;
 
+
   List<DateTime> disabledDates;
 
+  final int minimunHTimeDiff;
+  final bool utc;
   final ValueChanged<DateRange?> onDateRangeChanged;
 
   /// The minimum date that can be selected. (inclusive)
@@ -35,16 +57,69 @@ class RangePickerController {
   DateTime? maxDate;
 
   /// The start date of the selected range.
-  DateTime? startDate;
+  DateTime? _startDate;
+
+  /// The previous start date.
+  DateTime? prevStartDate;
 
   /// The end date of the selected range.
-  DateTime? endDate;
+  DateTime? _endDate;
+
+  set startDate(DateTime? dateTime) {
+    if (dateTime == null) {
+      _startDate = dateTime;
+    } else if (utc) {
+      _startDate = DateTime.utc(dateTime.year, dateTime.month, dateTime.day)
+          .add(_startTime);
+    } else {
+      _startDate = DateUtils.dateOnly(dateTime).add(_startTime);
+    }
+  }
+
+  set endDate(DateTime? dateTime) {
+    if (dateTime == null) {
+      _endDate = dateTime;
+    } else if (utc) {
+      _endDate = DateTime.utc(dateTime.year, dateTime.month, dateTime.day)
+          .add(_endTime);
+    } else {
+      _endDate = DateUtils.dateOnly(dateTime).add(_endTime);
+    }
+  }
+
+  /// The previous end date.
+  DateTime? prevEndDate;
+
+  late Duration _startTime;
+
+  late Duration _endTime;
+
+  Duration get startTime => _startTime;
+  Duration get endTime => _endTime;
+
+  DateTime? get startDate => _startDate;
+  DateTime? get endDate => _endDate;
+
+  set startTime(Duration duration) {
+    _startTime = duration;
+    startDate = _startDate;
+    if (dateRange != null) {
+      onDateRangeChangedExternally(dateRange);
+    }
+  }
+
+  set endTime(Duration duration) {
+    _endTime = duration;
+    endDate = _endDate;
+    if (dateRange != null) {
+      onDateRangeChangedExternally(dateRange);
+    }
+  }
 
   DateRange? get dateRange {
     if (startDate == null || endDate == null) {
       return null;
     }
-
     return DateRange(startDate!, endDate!);
   }
 
@@ -56,6 +131,8 @@ class RangePickerController {
   /// If the [startDate] is not null and the [endDate] is not null, the [startDate] will be set
   /// to the [date] parameter and the [endDate] will be set to null.
   void onDateChanged(DateTime date) {
+    prevStartDate = startDate;
+    prevEndDate = endDate;
     if (startDate == null) {
       startDate = date;
       onDateRangeChanged(DateRange(startDate!, startDate!));
@@ -175,8 +252,11 @@ class RangePickerController {
   }
 
   void onDateRangeChangedExternally(DateRange? newRange) {
+    prevStartDate = startDate;
+    prevEndDate = endDate;
     startDate = newRange?.start;
     endDate = newRange?.end;
+    print("onDateRangeChangedExternally: $startDate, $endDate");
     onDateRangeChanged(newRange);
   }
 }
