@@ -468,7 +468,7 @@ class EnrichedMonthWrapWidget extends StatelessWidget {
             _checkDateSelection(isStartDate, controller);
           },
           onTapOutside: (_) {
-            _checkDateSelection(isStartDate, controller);
+            //_checkDateSelection(isStartDate, controller);
           },
         ),
       ),
