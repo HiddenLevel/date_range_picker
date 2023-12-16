@@ -43,7 +43,6 @@ class RangePickerController {
   int? maximumDateRangeLength;
   int? minimumDateRangeLength;
 
-
   List<DateTime> disabledDates;
 
   final int minimunHTimeDiff;
@@ -256,7 +255,6 @@ class RangePickerController {
     prevEndDate = endDate;
     startDate = newRange?.start;
     endDate = newRange?.end;
-    print("onDateRangeChangedExternally: $startDate, $endDate");
     onDateRangeChanged(newRange);
   }
 }
