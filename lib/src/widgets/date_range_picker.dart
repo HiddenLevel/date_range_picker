@@ -481,22 +481,32 @@ class EnrichedMonthWrapWidget extends StatelessWidget {
       DateTime latestDt = dateFormat.parseStrict(controller.text, utc);
       final dateRange = rangePickerController.dateRange;
       if (isStartDate) {
-        if (dateRange != null) {
+        if (rangePickerController.minDate != null &&
+            latestDt != rangePickerController.minDate) {
+          assert(latestDt.isAfter(rangePickerController.minDate!));
+        } else if (dateRange != null) {
           assert(dateRange.end.difference(latestDt) >
               Duration(hours: minHTimeDiff));
         }
         if (calendarWidgetController.controller.endDate != null) {
+          assert(
+              calendarWidgetController.controller.endDate!.isAfter(latestDt));
           calendarWidgetController.setDateRange(DateRange(
               latestDt, calendarWidgetController.controller.endDate!));
         } else {
           onDateChanged(latestDt);
         }
       } else {
-        if (dateRange != null) {
+        if (rangePickerController.maxDate != null &&
+            latestDt != rangePickerController.maxDate) {
+          assert(latestDt.isBefore(rangePickerController.maxDate!));
+        } else if (dateRange != null) {
           assert(latestDt.difference(dateRange.start) >
               Duration(hours: minHTimeDiff));
         }
         if (calendarWidgetController.controller.startDate != null) {
+          assert(calendarWidgetController.controller.startDate!
+              .isBefore(latestDt));
           calendarWidgetController.setDateRange(DateRange(
               calendarWidgetController.controller.startDate!, latestDt));
         } else {
