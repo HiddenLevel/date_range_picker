@@ -17,7 +17,7 @@ class RangePickerController {
       this.maximumDateRangeLength,
       this.minimunHTimeDiff = 1,
       this.disabledDates = const [],
-      this.utc = true}) {
+      this.utc = false}) {
     if (dateRange != null) {
       _startDate = dateRange.start;
       _endDate = dateRange.end;

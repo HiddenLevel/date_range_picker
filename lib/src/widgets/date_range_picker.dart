@@ -141,7 +141,8 @@ class DateRangePickerWidget extends StatefulWidget {
       this.height = 600,
       this.displayMonthsSeparator = true,
       this.separatorThickness = 1,
-      this.minimunHTimeDiff = 1})
+      this.minimunHTimeDiff = 1,
+      this.useUtc = false})
       : super(key: key);
 
   /// Called whenever the selected date range is changed.
@@ -189,6 +190,9 @@ class DateRangePickerWidget extends StatefulWidget {
   /// Thickness of the vertical separator between months if [doubleMonth] mode is active
   final double separatorThickness;
 
+  /// If any of the dates generated should be in UTC.
+  final bool useUtc;
+
   @override
   State<DateRangePickerWidget> createState() => DateRangePickerWidgetState();
 }
@@ -202,7 +206,8 @@ class DateRangePickerWidgetState extends State<DateRangePickerWidget> {
       disabledDates: widget.disabledDates,
       minimumDateRangeLength: widget.minimumDateRangeLength,
       maximumDateRangeLength: widget.maximumDateRangeLength,
-      minimunHTimeDiff: widget.minimunHTimeDiff);
+      minimunHTimeDiff: widget.minimunHTimeDiff,
+      utc: widget.useUtc);
 
   late final calendarController = CalendarWidgetController(
     controller: controller,
@@ -476,7 +481,7 @@ class EnrichedMonthWrapWidget extends StatelessWidget {
   }
 
   void _checkDateSelection(bool isStartDate, TextEditingController controller,
-      [bool utc = true]) {
+      [bool utc = false]) {
     try {
       DateTime latestDt = dateFormat.parseStrict(controller.text, utc);
       final dateRange = rangePickerController.dateRange;
